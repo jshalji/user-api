@@ -1,0 +1,12 @@
+{
+  "name": "user-api",
+  "version": "1.0.0",
+  "description": "Simple API that returns a list of users",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
