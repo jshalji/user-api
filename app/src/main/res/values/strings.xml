@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OCIO Event Driven</string>
+
+    <string name="login">LOGIN</string>
+    <string name="sign_up">SIGN UP</string>
+    <string name="cancel">CANCEL</string>
+
+    <string name="username">Username</string>
+    <string name="email">Email</string>
+    <string name="confirm_email">Confirm Email</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+
+    <string name="please_fill_all_fields">Please fill in all fields</string>
+    <string name="emails_do_not_match">Emails do not match</string>
+    <string name="passwords_do_not_match">Passwords do not match</string>
+    <string name="signup_successful">Sign up successful!</string>
+    <string name="login_successful">Login successful!</string>
+</resources>
