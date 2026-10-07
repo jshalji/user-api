@@ -1,5 +1,6 @@
 package com.example.ocio_eventdriven_activity;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.view.View;
@@ -11,6 +12,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -20,7 +22,9 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -37,6 +41,9 @@ public class MainActivity extends AppCompatActivity {
     private EditText usernameEditText;
     private EditText loginPasswordEditText;
 
+    private EditText firstNameEditText;
+    private EditText lastNameEditText;
+
     private EditText emailEditText;
     private EditText confirmEmailEditText;
     private EditText passwordEditText;
@@ -45,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
     private EditText otpEditText;
     private TextView otpDisplayTextView;
     private TextView otpTimerTextView;
+    private TextView usersTextView;
 
     private String generatedOtp;
     private CountDownTimer otpTimer;
@@ -62,6 +70,9 @@ public class MainActivity extends AppCompatActivity {
         usernameEditText = findViewById(R.id.usernameEditText);
         loginPasswordEditText = findViewById(R.id.loginPasswordEditText);
 
+        firstNameEditText = findViewById(R.id.firstNameEditText);
+        lastNameEditText = findViewById(R.id.lastNameEditText);
+
         emailEditText = findViewById(R.id.emailEditText);
         confirmEmailEditText = findViewById(R.id.confirmEmailEditText);
         passwordEditText = findViewById(R.id.passwordEditText);
@@ -70,6 +81,9 @@ public class MainActivity extends AppCompatActivity {
         otpEditText = findViewById(R.id.otpEditText);
         otpDisplayTextView = findViewById(R.id.otpDisplayTextView);
         otpTimerTextView = findViewById(R.id.otpTimerTextView);
+        usersTextView = findViewById(R.id.usersTextView);
+
+        cleanOldSharedPreferences();
 
         Button loginButton = findViewById(R.id.loginButton);
         Button openSignUpButton = findViewById(R.id.openSignUpButton);
@@ -96,14 +110,42 @@ public class MainActivity extends AppCompatActivity {
         verifyOtpButton.setOnClickListener(v -> verifyOtp());
     }
 
+    private void cleanOldSharedPreferences() {
+
+        SharedPreferences sharedPreferences =
+                getSharedPreferences("UserData", MODE_PRIVATE);
+
+        sharedPreferences.edit()
+                .remove("Email")
+                .remove("FirstName")
+                .remove("LastName")
+                .remove("Password")
+                .apply();
+    }
+
     private void signUp() {
 
-        String email = emailEditText.getText().toString().trim();
-        String confirmEmail = confirmEmailEditText.getText().toString().trim();
-        String password = passwordEditText.getText().toString();
-        String confirmPassword = confirmPasswordEditText.getText().toString();
+        String firstName =
+                firstNameEditText.getText().toString().trim();
 
-        if (email.isEmpty()
+        String lastName =
+                lastNameEditText.getText().toString().trim();
+
+        String email =
+                emailEditText.getText().toString().trim();
+
+        String confirmEmail =
+                confirmEmailEditText.getText().toString().trim();
+
+        String password =
+                passwordEditText.getText().toString();
+
+        String confirmPassword =
+                confirmPasswordEditText.getText().toString();
+
+        if (firstName.isEmpty()
+                || lastName.isEmpty()
+                || email.isEmpty()
                 || confirmEmail.isEmpty()
                 || password.isEmpty()
                 || confirmPassword.isEmpty()) {
@@ -114,7 +156,10 @@ public class MainActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT
             ).show();
 
-        } else if (!email.equals(confirmEmail)) {
+            return;
+        }
+
+        if (!email.equals(confirmEmail)) {
 
             Toast.makeText(
                     this,
@@ -122,7 +167,10 @@ public class MainActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT
             ).show();
 
-        } else if (!password.equals(confirmPassword)) {
+            return;
+        }
+
+        if (!password.equals(confirmPassword)) {
 
             Toast.makeText(
                     this,
@@ -130,29 +178,181 @@ public class MainActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT
             ).show();
 
-        } else {
+            return;
+        }
+
+        SharedPreferences sharedPreferences =
+                getSharedPreferences("UserData", MODE_PRIVATE);
+
+        String savedUsers =
+                sharedPreferences.getString("Users", "[]");
+
+        try {
+
+            JSONArray usersArray =
+                    new JSONArray(savedUsers);
+
+            for (int i = 0; i < usersArray.length(); i++) {
+
+                JSONObject user =
+                        usersArray.getJSONObject(i);
+
+                String savedEmail =
+                        user.optString("Email", "");
+
+                if (email.equalsIgnoreCase(savedEmail)) {
+
+                    Toast.makeText(
+                            this,
+                            "Email is already registered.",
+                            Toast.LENGTH_SHORT
+                    ).show();
+
+                    return;
+                }
+            }
+
+        } catch (Exception e) {
 
             Toast.makeText(
                     this,
-                    getString(R.string.signup_successful),
+                    "Error reading saved accounts.",
                     Toast.LENGTH_SHORT
             ).show();
 
-            signUpLayout.setVisibility(View.GONE);
-            loginLayout.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        // NEW ACCOUNT IS SAVED LOCALLY ONLY.
+        // It is NOT sent to Render.
+        saveLocalAccount(
+                firstName,
+                lastName,
+                email,
+                password
+        );
+
+        Toast.makeText(
+                this,
+                getString(R.string.signup_successful),
+                Toast.LENGTH_SHORT
+        ).show();
+
+        firstNameEditText.setText("");
+        lastNameEditText.setText("");
+        emailEditText.setText("");
+        confirmEmailEditText.setText("");
+        passwordEditText.setText("");
+        confirmPasswordEditText.setText("");
+
+        signUpLayout.setVisibility(View.GONE);
+        loginLayout.setVisibility(View.VISIBLE);
+    }
+
+    private void saveLocalAccount(
+            String firstName,
+            String lastName,
+            String email,
+            String password) {
+
+        SharedPreferences sharedPreferences =
+                getSharedPreferences("UserData", MODE_PRIVATE);
+
+        String savedUsers =
+                sharedPreferences.getString("Users", "[]");
+
+        try {
+
+            JSONArray usersArray =
+                    new JSONArray(savedUsers);
+
+            JSONObject newUser =
+                    new JSONObject();
+
+            newUser.put("FirstName", firstName);
+            newUser.put("LastName", lastName);
+            newUser.put("Email", email);
+            newUser.put("Password", password);
+
+            usersArray.put(newUser);
+
+            sharedPreferences.edit()
+                    .putString(
+                            "Users",
+                            usersArray.toString()
+                    )
+                    .apply();
+
+        } catch (Exception e) {
+
+            Toast.makeText(
+                    this,
+                    "Could not save account locally.",
+                    Toast.LENGTH_SHORT
+            ).show();
         }
     }
 
     private void login() {
 
-        String email = usernameEditText.getText().toString().trim();
-        String password = loginPasswordEditText.getText().toString();
+        String email =
+                usernameEditText.getText().toString().trim();
+
+        String password =
+                loginPasswordEditText.getText().toString();
 
         if (email.isEmpty() || password.isEmpty()) {
 
             Toast.makeText(
                     this,
                     getString(R.string.please_fill_all_fields),
+                    Toast.LENGTH_SHORT
+            ).show();
+
+            return;
+        }
+
+        SharedPreferences sharedPreferences =
+                getSharedPreferences("UserData", MODE_PRIVATE);
+
+        String savedUsers =
+                sharedPreferences.getString("Users", "[]");
+
+        try {
+
+            JSONArray usersArray =
+                    new JSONArray(savedUsers);
+
+            for (int i = 0; i < usersArray.length(); i++) {
+
+                JSONObject user =
+                        usersArray.getJSONObject(i);
+
+                String savedEmail =
+                        user.optString("Email", "");
+
+                String savedPassword =
+                        user.optString("Password", "");
+
+                if (email.equals(savedEmail)
+                        && password.equals(savedPassword)) {
+
+                    Toast.makeText(
+                            this,
+                            "Login successful!",
+                            Toast.LENGTH_SHORT
+                    ).show();
+
+                    showOtpPage();
+                    return;
+                }
+            }
+
+        } catch (Exception e) {
+
+            Toast.makeText(
+                    this,
+                    "Error reading saved accounts.",
                     Toast.LENGTH_SHORT
             ).show();
 
@@ -169,7 +369,8 @@ public class MainActivity extends AppCompatActivity {
                         "https://user-api-qpau.onrender.com/login"
                 );
 
-                connection = (HttpURLConnection) url.openConnection();
+                connection =
+                        (HttpURLConnection) url.openConnection();
 
                 connection.setRequestMethod("POST");
 
@@ -178,11 +379,12 @@ public class MainActivity extends AppCompatActivity {
                         "application/json; charset=UTF-8"
                 );
 
-                connection.setConnectTimeout(15000);
-                connection.setReadTimeout(15000);
+                connection.setConnectTimeout(30000);
+                connection.setReadTimeout(30000);
                 connection.setDoOutput(true);
 
-                JSONObject request = new JSONObject();
+                JSONObject request =
+                        new JSONObject();
 
                 request.put("Email", email);
                 request.put("Password", password);
@@ -203,22 +405,27 @@ public class MainActivity extends AppCompatActivity {
                 InputStream inputStream;
 
                 if (responseCode >= 400) {
-                    inputStream = connection.getErrorStream();
+                    inputStream =
+                            connection.getErrorStream();
                 } else {
-                    inputStream = connection.getInputStream();
+                    inputStream =
+                            connection.getInputStream();
                 }
 
                 StringBuilder response =
                         new StringBuilder();
 
-                try (BufferedReader reader =
-                             new BufferedReader(
-                                     new InputStreamReader(inputStream))) {
+                if (inputStream != null) {
 
-                    String line;
+                    try (BufferedReader reader =
+                                 new BufferedReader(
+                                         new InputStreamReader(inputStream))) {
 
-                    while ((line = reader.readLine()) != null) {
-                        response.append(line);
+                        String line;
+
+                        while ((line = reader.readLine()) != null) {
+                            response.append(line);
+                        }
                     }
                 }
 
@@ -288,18 +495,26 @@ public class MainActivity extends AppCompatActivity {
 
         otpEditText.setText("");
 
+        generateNewOtp();
+
+        startOtpTimer();
+    }
+
+    private void generateNewOtp() {
+
         Random random = new Random();
 
         int otpNumber =
                 100000 + random.nextInt(900000);
 
-        generatedOtp = String.valueOf(otpNumber);
+        generatedOtp =
+                String.valueOf(otpNumber);
 
         otpDisplayTextView.setText(
                 "Your OTP: " + generatedOtp
         );
 
-        startOtpTimer();
+        otpEditText.setText("");
     }
 
     private void startOtpTimer() {
@@ -308,38 +523,38 @@ public class MainActivity extends AppCompatActivity {
             otpTimer.cancel();
         }
 
-        otpTimer = new CountDownTimer(15000, 1000) {
+        otpTimer =
+                new CountDownTimer(15000, 1000) {
 
-            @Override
-            public void onTick(long millisUntilFinished) {
+                    @Override
+                    public void onTick(
+                            long millisUntilFinished) {
 
-                long seconds =
-                        millisUntilFinished / 1000;
+                        long seconds =
+                                millisUntilFinished / 1000;
 
-                otpTimerTextView.setText(
-                        "Expires in: "
-                                + seconds
-                                + " seconds"
-                );
-            }
+                        otpTimerTextView.setText(
+                                "Expires in: "
+                                        + seconds
+                                        + " seconds"
+                        );
+                    }
 
-            @Override
-            public void onFinish() {
+                    @Override
+                    public void onFinish() {
 
-                otpTimerTextView.setText(
-                        "OTP expired."
-                );
+                        generateNewOtp();
 
-                generatedOtp = null;
+                        Toast.makeText(
+                                MainActivity.this,
+                                "OTP expired. A new OTP was generated.",
+                                Toast.LENGTH_SHORT
+                        ).show();
 
-                Toast.makeText(
-                        MainActivity.this,
-                        "OTP expired. Please login again.",
-                        Toast.LENGTH_LONG
-                ).show();
-            }
+                        startOtpTimer();
+                    }
 
-        }.start();
+                }.start();
     }
 
     private void verifyOtp() {
@@ -362,7 +577,7 @@ public class MainActivity extends AppCompatActivity {
 
             Toast.makeText(
                     this,
-                    "OTP expired. Please login again.",
+                    "OTP expired. Please wait for a new OTP.",
                     Toast.LENGTH_LONG
             ).show();
 
@@ -375,8 +590,7 @@ public class MainActivity extends AppCompatActivity {
                 otpTimer.cancel();
             }
 
-            otpLayout.setVisibility(View.GONE);
-            successLayout.setVisibility(View.VISIBLE);
+            showUsersPage();
 
             Toast.makeText(
                     this,
@@ -392,6 +606,267 @@ public class MainActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT
             ).show();
         }
+    }
+
+    private void showUsersPage() {
+
+        loginLayout.setVisibility(View.GONE);
+        signUpLayout.setVisibility(View.GONE);
+        otpLayout.setVisibility(View.GONE);
+        successLayout.setVisibility(View.VISIBLE);
+
+        usersTextView.setText("Loading users...");
+
+        executorService.execute(() -> {
+
+            JSONArray localUsers =
+                    getLocalUsers();
+
+            JSONArray renderUsers =
+                    getRenderUsers();
+
+            JSONArray combinedUsers =
+                    combineUsers(
+                            localUsers,
+                            renderUsers
+                    );
+
+            String display =
+                    formatUsers(combinedUsers);
+
+            runOnUiThread(() ->
+                    usersTextView.setText(display)
+            );
+        });
+    }
+
+    private JSONArray getLocalUsers() {
+
+        SharedPreferences sharedPreferences =
+                getSharedPreferences("UserData", MODE_PRIVATE);
+
+        String savedUsers =
+                sharedPreferences.getString("Users", "[]");
+
+        try {
+
+            return new JSONArray(savedUsers);
+
+        } catch (Exception e) {
+
+            return new JSONArray();
+        }
+    }
+
+    private JSONArray getRenderUsers() {
+
+        HttpURLConnection connection = null;
+
+        try {
+
+            URL url = new URL(
+                    "https://user-api-qpau.onrender.com/"
+            );
+
+            connection =
+                    (HttpURLConnection) url.openConnection();
+
+            connection.setRequestMethod("GET");
+
+            connection.setConnectTimeout(30000);
+            connection.setReadTimeout(30000);
+
+            int responseCode =
+                    connection.getResponseCode();
+
+            if (responseCode < 200
+                    || responseCode >= 300) {
+
+                return new JSONArray();
+            }
+
+            InputStream inputStream =
+                    connection.getInputStream();
+
+            StringBuilder response =
+                    new StringBuilder();
+
+            if (inputStream != null) {
+
+                try (BufferedReader reader =
+                             new BufferedReader(
+                                     new InputStreamReader(inputStream))) {
+
+                    String line;
+
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                }
+            }
+
+            String responseText =
+                    response.toString().trim();
+
+            if (responseText.isEmpty()) {
+                return new JSONArray();
+            }
+
+            return new JSONArray(responseText);
+
+        } catch (Exception e) {
+
+            return new JSONArray();
+
+        } finally {
+
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private JSONArray combineUsers(
+            JSONArray localUsers,
+            JSONArray renderUsers) {
+
+        JSONArray combinedUsers =
+                new JSONArray();
+
+        Set<String> emails =
+                new HashSet<>();
+
+        try {
+
+            for (int i = 0;
+                 i < localUsers.length();
+                 i++) {
+
+                JSONObject user =
+                        localUsers.getJSONObject(i);
+
+                String email =
+                        user.optString(
+                                "Email",
+                                ""
+                        ).trim().toLowerCase();
+
+                if (!email.isEmpty()
+                        && !emails.contains(email)) {
+
+                    combinedUsers.put(user);
+                    emails.add(email);
+                }
+            }
+
+            for (int i = 0;
+                 i < renderUsers.length();
+                 i++) {
+
+                JSONObject user =
+                        renderUsers.getJSONObject(i);
+
+                String email =
+                        user.optString(
+                                "Email",
+                                ""
+                        ).trim().toLowerCase();
+
+                if (!email.isEmpty()
+                        && !emails.contains(email)) {
+
+                    combinedUsers.put(user);
+                    emails.add(email);
+                }
+            }
+
+        } catch (Exception ignored) {
+        }
+
+        return combinedUsers;
+    }
+
+    private String formatUsers(
+            JSONArray usersArray) {
+
+        StringBuilder usersDisplay =
+                new StringBuilder();
+
+        if (usersArray.length() == 0) {
+
+            return "No registered users found.";
+        }
+
+        try {
+
+            usersDisplay.append(
+                            "Total Users: "
+                    ).append(usersArray.length())
+                    .append("\n\n");
+
+            usersDisplay.append(
+                    "================================\n\n"
+            );
+
+            for (int i = 0;
+                 i < usersArray.length();
+                 i++) {
+
+                JSONObject user =
+                        usersArray.getJSONObject(i);
+
+                String firstName =
+                        user.optString(
+                                "FirstName",
+                                ""
+                        );
+
+                String lastName =
+                        user.optString(
+                                "LastName",
+                                ""
+                        );
+
+                String email =
+                        user.optString(
+                                "Email",
+                                ""
+                        );
+
+                usersDisplay.append(
+                                "USER #"
+                        ).append(i + 1)
+                        .append("\n\n");
+
+                usersDisplay.append(
+                                "First Name: "
+                        ).append(firstName)
+                        .append("\n");
+
+                usersDisplay.append(
+                                "Last Name: "
+                        ).append(lastName)
+                        .append("\n");
+
+                usersDisplay.append(
+                                "Email: "
+                        ).append(email)
+                        .append("\n");
+
+                if (i < usersArray.length() - 1) {
+
+                    usersDisplay.append(
+                            "\n--------------------------------\n\n"
+                    );
+                }
+            }
+
+        } catch (Exception e) {
+
+            return "Unable to load users.";
+        }
+
+        return usersDisplay.toString();
     }
 
     @Override

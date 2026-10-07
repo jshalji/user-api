@@ -4,8 +4,11 @@
 
     <string name="login">LOGIN</string>
     <string name="sign_up">SIGN UP</string>
+    <string name="register">REGISTER</string>
     <string name="cancel">CANCEL</string>
 
+    <string name="first_name">First Name</string>
+    <string name="last_name">Last Name</string>
     <string name="username">Username</string>
     <string name="email">Email</string>
     <string name="confirm_email">Confirm Email</string>
